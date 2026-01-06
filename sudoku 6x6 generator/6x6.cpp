@@ -3,7 +3,6 @@
 #include <vector>
 #include <algorithm>
 #include <random>
-#include <bits/stdc++.h>
 
 using namespace std;
 
@@ -14,35 +13,64 @@ enum Difficulty {
     MEDIUM
 };
 
+const int FULL_MASK = (1 << N) - 1;
+
 class Sudoku6{
 public:
     int grid[N][N];
+    int rowMask[N], colMask[N], boxMask[N];
     int boxH, boxW;
     mt19937 rng;
 
     Sudoku6(int h, int w) : boxH(h), boxW(w) {
         memset(grid, 0, sizeof(grid));
+        memset(rowMask, 0, sizeof(rowMask));
+        memset(colMask, 0, sizeof(colMask));
+        memset(boxMask, 0, sizeof(boxMask));
         rng.seed(random_device{}());
     };
 
+    inline int boxIndex(int r, int c) {
+        return (r / boxH) * (N / boxW) + (c / boxW);
+    }
+
+    inline int candidatesMask(int r, int c) {
+        int b = boxIndex(r, c);
+        return FULL_MASK & ~(rowMask[r] | colMask[c] | boxMask[b]);
+    }
+
+    inline int popcount(int x) {
+        return __builtin_popcount(x);
+    }
+
     // === Validity Checker === //
-    bool isValid(int r, int c, int num){
-        // Row & Column
-        for (int i = 0; i < N; i++) {
-            if (grid[r][i] == num) return false;
-            if (grid[i][c] == num) return false;
-        }
+    inline bool isValid(int r, int c, int num){
+        int bit = 1 << (num - 1);
+        int b = boxIndex(r, c);
 
-        // Box
-        int br = (r / boxH) * boxH;
-        int bc = (c / boxW) * boxW;
+        return !(rowMask[r] & bit) &&
+               !(colMask[c] & bit) &&
+               !(boxMask[b] & bit);
+    }
 
-        for (int i = 0; i < boxH; i++) {
-            for (int j = 0; j < boxW; j++) {
-                if (grid[br + i][bc + j] == num) return false;
-            }
-        }
-        return true;
+    inline void place(int r, int c, int num) {
+        int bit = 1 << (num - 1);
+        int b = boxIndex(r, c);
+
+        grid[r][c] = num;
+        rowMask[r] |= bit;
+        colMask[c] |= bit;
+        boxMask[b] |= bit;
+    }
+
+    inline void remove(int r, int c, int num) {
+        int bit = 1 << (num - 1);
+        int b = boxIndex(r, c);
+
+        grid[r][c] = 0;
+        rowMask[r] ^= bit;
+        colMask[c] ^= bit;
+        boxMask[b] ^= bit;
     }
 
     // === Solved Grid Generation === //
@@ -51,37 +79,41 @@ public:
         if (c == N) return fillGrid(r + 1, 0);
         if (grid[r][c] != 0) return fillGrid(r, c + 1);
 
-        vector<int> nums = {1, 2, 3, 4, 5, 6};
+        int mask = candidatesMask(r, c);
+        vector<int> nums;
+
+        while(mask) {
+            int bit = mask & -mask;
+            nums.push_back(__builtin_ctz(bit) + 1);
+            mask ^= bit;
+        }
         shuffle(nums.begin(), nums.end(), rng);
         
         for (int num : nums) {
-            if (isValid(r, c, num)){
-                grid[r][c] = num;
-                if (fillGrid(r, c + 1)) return true;
-                grid[r][c] = 0;
-            }
+            place(r, c, num);
+            if (fillGrid(r, c + 1)) return true;
+            remove(r, c, num);
         }
         return false;
     }
 
     // === MRV Cell Selection === //
     bool findMRVCell(int &r, int &c) {
-        int minCount = N + 1;
+        int best = N + 1;
         bool found = false;
 
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
                 if (grid[i][j] == 0) {
-                    int cnt = 0;
-                    for (int num = 1; num <= N; num++)
-                        if (isValid(i, j, num))
-                            cnt++;
+                    int cnt = popcount(candidatesMask(i, j));
+                    if (cnt == 0) return false;
 
-                    if (cnt < minCount) {
-                        minCount = cnt;
+                    if (cnt < best) {
+                        best = cnt;
                         r = i;
                         c = j;
                         found = true;
+                        if (cnt == 1) return true;
                     }
                 }
             }
@@ -99,12 +131,17 @@ public:
             return;
         }
 
-        for (int num = 1; num <= N; num++) {
-            if (isValid(r, c, num)){
-                grid[r][c] = num;
-                countSolutions(count, limit);
-                grid[r][c] = 0;
-            }
+        int mask = candidatesMask(r, c);
+        while (mask){
+            int bit = mask & -mask;
+            int num = __builtin_ctz(bit) + 1;
+            mask ^= bit;
+
+            place(r, c, num);
+            countSolutions(count, limit);
+            remove(r, c, num);
+
+            if (count >= limit) return;
         }
     }
 
@@ -132,10 +169,6 @@ public:
         int boxCount = (N / boxH) * (N / boxW);
         vector<int> boxClues(boxCount, boxH * boxW);
 
-        auto boxIndex = [&](int r, int c) {
-            return (r / boxH) * (N / boxW) + (c / boxW);
-        };
-
         for (auto [r, c] : cells) {
             if (clues <= targetClues) break;
 
@@ -144,13 +177,13 @@ public:
                 continue;
         
             int backup = grid[r][c];
-            grid[r][c] = 0;
+            remove(r, c, backup);
 
             if (hasUniqueSolution()) {
                 boxClues[b]--;
                 clues--;
             } else {
-                grid[r][c] = backup;
+                place(r, c, backup);
             }
         }
     }

@@ -10,10 +10,18 @@ const int N = 6;
 
 enum Difficulty {
     EASY,
-    MEDIUM
+    MEDIUM,
+    HARD
 };
 
 const int FULL_MASK = (1 << N) - 1;
+
+// === Solution Stats === //
+struct SolveStats {
+    int recursiveCalls  = 0;
+    int forcedMoves = 0;
+    int maxBranching = 0;
+};
 
 class Sudoku6{
 public:
@@ -30,15 +38,18 @@ public:
         rng.seed(random_device{}());
     };
 
+    // Computes the box index for a cell (r, c) based on box dimensions
     inline int boxIndex(int r, int c) {
         return (r / boxH) * (N / boxW) + (c / boxW);
     }
 
+    // Returns a bitmask of all valid candidate numbers for cell (r, c)
     inline int candidatesMask(int r, int c) {
         int b = boxIndex(r, c);
         return FULL_MASK & ~(rowMask[r] | colMask[c] | boxMask[b]);
     }
 
+    // Counts how many bits are set to 1 in an integer (number of candidates)
     inline int popcount(int x) {
         return __builtin_popcount(x);
     }
@@ -53,6 +64,7 @@ public:
                !(boxMask[b] & bit);
     }
 
+    // Places a number in the grid and updates row/col/box masks
     inline void place(int r, int c, int num) {
         int bit = 1 << (num - 1);
         int b = boxIndex(r, c);
@@ -63,14 +75,15 @@ public:
         boxMask[b] |= bit;
     }
 
+    // Removes a number from the grid and restores row/col/box masks
     inline void remove(int r, int c, int num) {
         int bit = 1 << (num - 1);
         int b = boxIndex(r, c);
 
         grid[r][c] = 0;
-        rowMask[r] ^= bit;
-        colMask[c] ^= bit;
-        boxMask[b] ^= bit;
+        rowMask[r] &= ~bit;
+        colMask[c] &= ~bit;
+        boxMask[b] &= ~bit;
     }
 
     // === Solved Grid Generation === //
@@ -152,11 +165,66 @@ public:
         return count == 1;
     }
 
+    // === Solve with statistics === //
+    bool solveStats(SolveStats &stats) {
+        stats.recursiveCalls++;
+        
+        int r, c;
+        if (!findMRVCell(r, c)) return true;
+
+        int mask = candidatesMask(r, c);
+        int choices = popcount(mask);
+
+        stats.maxBranching = max(stats.maxBranching, choices);
+        if (choices == 1) stats.forcedMoves++;
+
+        while (mask) {
+            int bit = mask & -mask;
+            int num = __builtin_ctz(bit) + 1;
+            mask ^= bit;
+
+            place(r, c, num);
+            if (solveStats(stats)) return true;
+            remove(r, c, num);
+        }
+        return false;
+    }
+
+    // Determines if the puzzle matches the requested difficulty level
+    bool matchesDifficulty(Difficulty diff) {
+        Sudoku6 copy = *this;
+        SolveStats stats;
+        copy.solveStats(stats);
+
+        if (diff == EASY) {
+            return stats.maxBranching <= 2 &&
+                   stats.recursiveCalls < 300 &&
+                   stats.forcedMoves > 10;
+        }
+
+        if (diff == MEDIUM) {
+            return stats.maxBranching <= 3 &&
+                   stats.recursiveCalls < 1500 &&
+                   stats.forcedMoves >= 4;
+        }
+
+        if (diff == HARD) {
+            return stats.maxBranching >= 3 &&
+                   stats.recursiveCalls >= 300 &&
+                   stats.forcedMoves <= 6;
+        }
+
+        return false;
+    }
     // === Puzzle Generation === //
     void generatePuzzle(Difficulty diff) {
         fillGrid();
 
-        int targetClues = (diff == EASY) ? 24 : 18;
+        int targetClues;
+        if (diff == EASY) targetClues = 24;
+        if (diff == MEDIUM) targetClues = 18;
+        if (diff == HARD) targetClues = 14;
+
         int clues = N * N;
 
         vector<pair<int, int>> cells;
@@ -173,7 +241,8 @@ public:
             if (clues <= targetClues) break;
 
             int b = boxIndex(r, c);
-            if (boxClues[b] <= ((diff == EASY) ? 3 : 2))
+            int minBoxClues = (diff == EASY) ? 3 : (diff == MEDIUM) ? 2 : 1;
+            if (boxClues[b] <= minBoxClues)
                 continue;
         
             int backup = grid[r][c];
@@ -184,6 +253,50 @@ public:
                 clues--;
             } else {
                 place(r, c, backup);
+            }
+        }
+        int attempts = 0;
+        const int maxAttempts = 10;
+        while (!matchesDifficulty(diff) && attempts < maxAttempts) {
+            attempts++;
+            // Reset everything
+            memset(grid, 0, sizeof(grid));
+            memset(rowMask, 0, sizeof(rowMask));
+            memset(colMask, 0, sizeof(colMask));
+            memset(boxMask, 0, sizeof(boxMask));
+
+            fillGrid();
+
+            // Recreate the list of cells and remove clues again
+            int clues = N * N;
+            vector<pair<int, int>> cells;
+            for (int i = 0; i < N; i++)
+                for (int j = 0; j < N; j++)
+                    cells.emplace_back(i, j);
+
+            shuffle(cells.begin(), cells.end(), rng);
+
+            int targetClues = (diff == EASY ? 24 : diff == MEDIUM ? 18 : 14);
+            int boxCount = (N / boxH) * (N / boxW);
+            vector<int> boxClues(boxCount, boxH * boxW);
+
+            for (auto [r, c] : cells) {
+                if (clues <= targetClues) break;
+
+                int b = boxIndex(r, c);
+                int minBoxClues = (diff == EASY) ? 3 : (diff == MEDIUM) ? 2 : 1;
+                if (boxClues[b] <= minBoxClues)
+                    continue;
+
+                int backup = grid[r][c];
+                remove(r, c, backup);
+
+                if (hasUniqueSolution()) {
+                    boxClues[b]--;
+                    clues--;
+                } else {
+                    place(r, c, backup);
+                }
             }
         }
     }
@@ -207,8 +320,8 @@ public:
 // === Main === //
 int main() {
     Sudoku6 sudoku(2, 3);
-    sudoku.generatePuzzle(EASY);
+    sudoku.generatePuzzle(HARD);
 
     sudoku.print();
     return 0;
-}
+};

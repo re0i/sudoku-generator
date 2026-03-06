@@ -3,14 +3,13 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 using namespace std;
 
-const int N = 6;
+const int MAX_N = 6;
 enum Difficulty {EASY, MEDIUM, HARD};
-
-const int FULL_MASK = (1 << N) - 1;
 
 struct CandChange {
     int r, c;
@@ -30,15 +29,25 @@ struct SolveStats {
 
 class Sudoku6 {
 public:
-    int grid[N][N];
-    int rowMask[N], colMask[N], boxMask[N];
-    int cand[N][N];
+    int n;
+    int fullMask;
+    int grid[MAX_N][MAX_N];
+    int rowMask[MAX_N], colMask[MAX_N], boxMask[MAX_N];
+    int cand[MAX_N][MAX_N];
     int emptyCells;
     int boxH, boxW;
     mt19937 rng;
     vector<CandChange> candLog;
 
-    Sudoku6(int h, int w) : boxH(h), boxW(w) {
+    Sudoku6(int size, int h, int w) : n(size), boxH(h), boxW(w) {
+        if (n < 1 || n > MAX_N) {
+            throw invalid_argument("Unsupported grid size.");
+        }
+        if (boxH <= 0 || boxW <= 0 || boxH * boxW != n || n % boxH != 0 || n % boxW != 0) {
+            throw invalid_argument("Unsupported box dimensions for grid size.");
+        }
+
+        fullMask = (1 << n) - 1;
         clear();
         rng.seed(chrono::steady_clock::now().time_since_epoch().count());
     };
@@ -48,21 +57,21 @@ public:
         memset(rowMask, 0, sizeof(rowMask));
         memset(colMask, 0, sizeof(colMask));
         memset(boxMask, 0, sizeof(boxMask));
-        emptyCells = N * N;
+        emptyCells = n * n;
         candLog.clear();
         initCandidates();
     }
 
     inline int boxIndex(int r, int c) {
-        return (r / boxH) * (N / boxW) + (c / boxW);
+        return (r / boxH) * (n / boxW) + (c / boxW);
     }
 
     void updateCandidatesInc(int r, int c, int num) {
-        int bit = 1 << (num -1);
+        int bit = 1 << (num - 1);
         int b = boxIndex(r, c);
         
-        int br = (b / (N / boxW)) * boxH;
-        int bc = (b % (N / boxW)) * boxW;
+        int br = (b / (n / boxW)) * boxH;
+        int bc = (b % (n / boxW)) * boxW;
 
         auto removeBit = [&](int rr, int cc) {
             if (cand[rr][cc] & bit) {
@@ -71,7 +80,7 @@ public:
             }
         };
 
-        for (int i = 0; i < N; i++) {
+        for (int i = 0; i < n; i++) {
             if (grid[r][i] == 0) removeBit(r, i);
             if (grid[i][c] == 0) removeBit(i, c);
         }
@@ -90,7 +99,7 @@ public:
     }
 
     inline void place(int r, int c, int num) {
-        if (num < 1 || num > N || grid[r][c] != 0) return;
+        if (num < 1 || num > n || grid[r][c] != 0) return;
         int bit = 1 << (num - 1);
         int b = boxIndex(r, c);
 
@@ -111,7 +120,7 @@ public:
     }
 
     inline void clearAll(int r, int c, int num) {
-        if (num < 1 || num > N || grid[r][c] == 0) return;
+        if (num < 1 || num > n || grid[r][c] == 0) return;
         int bit = 1 << (num - 1);
         int b = boxIndex(r, c);
 
@@ -123,11 +132,11 @@ public:
     }
 
     void initCandidates() {
-        for (int r = 0; r < N; r++) {
-            for (int c = 0; c < N; c++) {
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
                 if (grid[r][c] == 0) {
                     int b = boxIndex(r, c);
-                    cand[r][c] = FULL_MASK & ~rowMask[r] & ~colMask[c] & ~boxMask[b];
+                    cand[r][c] = fullMask & ~rowMask[r] & ~colMask[c] & ~boxMask[b];
                 } else {
                     cand[r][c] = 0;
                 }
@@ -142,14 +151,14 @@ public:
         emptyCells = 0;
         candLog.clear();
 
-        for (int r = 0; r < N; r++) {
-            for (int c = 0; c < N; c++) {
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
                 int num = grid[r][c];
                 if (num == 0) {
                     emptyCells++;
                     continue;
                 }
-                if (num < 1 || num > N) return false;
+                if (num < 1 || num > n) return false;
                 
                 int bit = 1 << (num - 1);
                 int b = boxIndex(r, c);
@@ -163,8 +172,8 @@ public:
         }
 
         initCandidates();
-        for (int r = 0; r < N; r++) {
-            for (int c = 0; c < N; c++){
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++){
                 if (grid[r][c] == 0 && cand[r][c] == 0) return false;
             }
         }
@@ -178,7 +187,7 @@ public:
         if (!findMRVCell(r, c)) return false;
 
         int mask = cand[r][c];
-        int nums[N], cnt = 0;
+        int nums[MAX_N], cnt = 0;
 
         while (mask) {
             int bit = mask & -mask;
@@ -206,15 +215,16 @@ public:
         bool progress = false;
 
         // Naked pairs in rows
-        for (int r = 0; r < N; r++) {
-            for (int c1 = 0; c1 < N; c1++) {
+        for (int r = 0; r < n; r++) {
+            for (int c1 = 0; c1 < n; c1++) {
                 if (grid[r][c1] == 0 && popcount(cand[r][c1]) == 2) {
-                    for (int c2 = c1 + 1; c2 < N; c2++) {
+                    for (int c2 = c1 + 1; c2 < n; c2++) {
                         if (grid[r][c2] == 0 && cand[r][c1] == cand[r][c2]) {
                             int pairMask = cand[r][c1];
                             bool eliminated = false;
-                            for (int c = 0; c < N; c++) {
+                            for (int c = 0; c < n; c++) {
                                 if (c != c1 && c != c2 && grid[r][c] == 0 && (cand[r][c] & pairMask)) {
+                                    candLog.push_back({r, c, cand[r][c]});
                                     cand[r][c] &= ~pairMask;
                                     eliminated = true;
                                 }                              
@@ -230,15 +240,16 @@ public:
         }
 
         //Naked Pairs in columns
-        for (int c = 0; c < N; c++) {
-            for (int r1 = 0; r1 < N; r1++) {
+        for (int c = 0; c < n; c++) {
+            for (int r1 = 0; r1 < n; r1++) {
                 if (grid[r1][c] == 0 && popcount(cand[r1][c]) == 2) {
-                    for (int r2 = r1 + 1; r2 < N; r2++) {
+                    for (int r2 = r1 + 1; r2 < n; r2++) {
                         if (grid[r2][c] == 0 && cand[r1][c] == cand[r2][c]) {
                             int pairMask = cand[r1][c];
-                            int eliminated = false;
-                            for (int r = 0; r < N; r++) {
+                            bool eliminated = false;
+                            for (int r = 0; r < n; r++) {
                                 if (r != r1 && r != r2 && grid[r][c] == 0 && (cand[r][c] & pairMask)) {
+                                    candLog.push_back({r, c, cand[r][c]});
                                     cand[r][c] &= ~pairMask;
                                     eliminated = true;
                                 }
@@ -254,9 +265,9 @@ public:
         }
 
         // Naked pairs in boxes
-        for (int b = 0; b < N; b++) {
-            int br = (b / (N / boxW)) * boxH;
-            int bc = (b % (N / boxW)) * boxW;
+        for (int b = 0; b < n; b++) {
+            int br = (b / (n / boxW)) * boxH;
+            int bc = (b % (n / boxW)) * boxW;
             vector<pair<int, int>> cells;
             for (int i = 0; i < boxH; i++) {
                 for (int j = 0; j < boxW; j++) {
@@ -279,6 +290,7 @@ public:
                                 if (k != i && k != j) {
                                     auto [r3, c3] = cells[k];
                                     if (grid[r3][c3] == 0 && cand[r3][c3] & pairMask) {
+                                        candLog.push_back({r3, c3, cand[r3][c3]});
                                         cand[r3][c3] &= ~pairMask;
                                         eliminated = true;
                                     }
@@ -298,11 +310,11 @@ public:
 
     // MRV Cell Selection
     bool findMRVCell(int &r, int &c) {
-        int best = N + 1;
+        int best = n + 1;
         bool found = false;
 
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
                 if (grid[i][j] == 0) {
                     int cnt = popcount(cand[i][j]);
                     if (cnt == 0) return false;
@@ -324,10 +336,11 @@ public:
         if (count >= limit) return true;
 
         int r = -1, c = -1;
-        int best = N + 1;
+        int best = n + 1;
 
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
+        // Proper MRV selection
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
                 if (grid[i][j] == 0) {
                     int pc = popcount(cand[i][j]);
                     if (pc == 0) return false;   // dead branch
@@ -370,7 +383,7 @@ public:
     }
 
     bool hasUniqueSolution() {
-        Sudoku6 copy(boxH, boxW);
+        Sudoku6 copy(n, boxH, boxW);
         memcpy(copy.grid, grid, sizeof(grid));
         if (!copy.rebuildStateFromGrid()) return false;
         int count = 0;
@@ -380,8 +393,8 @@ public:
 
     bool applyNakedSingles(SolveStats &stats) {
         bool progress = false;
-        for (int r = 0; r < N; r++) {
-            for (int c = 0; c < N; c++) {
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
                 if (grid[r][c] == 0) {
                     int mask = cand[r][c];
                     if (popcount(mask) == 1) {
@@ -399,11 +412,11 @@ public:
     bool applyHiddenSingles(SolveStats &s) {
         bool progress = false;
         // Check rows
-        for (int r = 0; r < N; r++) {
-            for (int num = 1; num <= N; num++) {
+        for (int r = 0; r < n; r++) {
+            for (int num = 1; num <= n; num++) {
                 int bit = 1 << (num - 1);
                 int count = 0, pos = -1;
-                for (int c = 0; c < N; c++) {
+                for (int c = 0; c < n; c++) {
                     if (grid[r][c] == 0 && (cand[r][c] & bit)) {
                         count++, pos = c;
                     }
@@ -416,11 +429,11 @@ public:
             }
         }
         // Check columns
-        for (int c = 0; c < N; c++) {
-            for (int num = 1; num <= N; num++) {
+        for (int c = 0; c < n; c++) {
+            for (int num = 1; num <= n; num++) {
                 int bit = 1 << (num - 1);
                 int count = 0, pos = -1;
-                for (int r = 0; r < N; r++) {
+                for (int r = 0; r < n; r++) {
                     if (grid[r][c] == 0 && (cand[r][c] & bit)) {
                         count++;
                         pos = r;
@@ -434,10 +447,10 @@ public:
             }
         }
         // Check boxes
-        for (int b = 0; b < N; b++) {
-            int br = (b / (N / boxW)) * boxH;
-            int bc = (b % (N / boxW)) * boxW;
-            for (int num = 1; num <= N; num++) {
+        for (int b = 0; b < n; b++) {
+            int br = (b / (n / boxW)) * boxH;
+            int bc = (b % (n / boxW)) * boxW;
+            for (int num = 1; num <= n; num++) {
                 int bit = 1 << (num - 1);
                 int count = 0, pr = -1, pc = -1;
                 for (int i = 0; i < boxH; i++) {
@@ -464,6 +477,7 @@ public:
         s.recursiveCalls++;
         s.maxGuessDepth = max(s.maxGuessDepth, depth);
 
+        // Apply human techniques
         bool progress = true;
         while (progress) {
             progress = false;
@@ -504,29 +518,36 @@ public:
     }
 
     bool matchesDifficulty(Difficulty diff) {
-        Sudoku6 copy(boxH, boxW);
+        Sudoku6 copy(n, boxH, boxW);
         memcpy(copy.grid, grid, sizeof(grid));
         if (!copy.rebuildStateFromGrid()) return false;
         SolveStats s;
         copy.solveStats(s);
 
-        if (diff == EASY) {
+        if (n == 4) {
+            if (diff == EASY) return s.guesses == 0;
+            if (diff == MEDIUM) return s.guesses <= 2;
+            if (diff == HARD) return s.guesses >= 1;
+        } else {
+            if (diff == EASY) {
             return s.guesses <= 1 &&
-            s.backtracks <= 2 &&
-            s.nakedSingles + s.hiddenSingles >= 10;
-        }
+                   s.backtracks <= 2 &&
+                   s.nakedSingles + s.hiddenSingles >= 10;
+            }
 
-        if (diff == MEDIUM) {
-            return s.guesses <= 5 &&
-                   s.backtracks <= 10 &&
-                   s.nakedSingles + s.hiddenSingles >= 5 &&
-                   s.maxGuessDepth <= 2;
-        }
-        if (diff == HARD) {
-            int clues = N * N - emptyCells;
-            return clues <= 10 &&
-                   s.maxGuessDepth >= 1 &&
-                   (s.guesses >= 1 || s.backtracks >= 2);
+            if (diff == MEDIUM) {
+                return s.guesses <= 5 &&
+                       s.backtracks <= 10 &&
+                       s.nakedSingles + s.hiddenSingles >= 5 &&
+                       s.maxGuessDepth <= 2;
+            }
+
+            if (diff == HARD) {
+                int clues = n * n - emptyCells;
+                return clues <= 10 &&
+                       s.maxGuessDepth >= 1 &&
+                       (s.guesses >= 1 || s.backtracks >= 2);
+            }
         }
         return false;
     }
@@ -538,12 +559,18 @@ public:
             initCandidates();
             candLog.clear();
 
-            int targetClues = (diff == EASY ? 24 : (diff == MEDIUM ? 18 : 10));
-            int clues = N * N;
+            int targetClues;
 
+            if (n == 4) {
+                targetClues = (diff == EASY ? 10 : (diff == MEDIUM ? 9 : 8));
+            } else {
+                targetClues = (diff == EASY ? 24 : (diff == MEDIUM ? 18 : 10));
+            }
+
+            int clues = n * n;
             vector<pair<int, int>> cells;
-            for (int r = 0; r < N; r++)
-                for (int c = 0; c < N; c++)
+            for (int r = 0; r < n; r++)
+                for (int c = 0; c < n; c++)
                     cells.emplace_back(r, c);
 
             shuffle(cells.begin(), cells.end(), rng);
@@ -582,14 +609,14 @@ public:
     }
 
     void print() {
-        for (int r = 0; r < N; r++) {
-            for (int c = 0; c < N; c++) {
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
                 cout << (grid[r][c] == 0 ? "." : to_string(grid[r][c])) << " ";
-                if ((c + 1) % boxW == 0 && c != N - 1) cout << "| ";
+                if ((c + 1) % boxW == 0 && c != n - 1) cout << "| ";
             }
             cout << "\n";
-            if ((r + 1) % boxH == 0 && r != N - 1) {
-                for (int k = 0; k < N + 2; k++) cout << "--";
+            if ((r + 1) % boxH == 0 && r != n - 1) {
+                for (int k = 0; k < n + 2; k++) cout << "--";
                 cout << "\n";
             }
         }
@@ -597,14 +624,17 @@ public:
 };
 
 int main() {
-    Difficulty diff = EASY;
+    int size = 4;
+    int boxH = (size == 4) ? 2 : 3;
+    int boxW = (size == 4) ? 2 : 2;
+    Difficulty diff = MEDIUM;
 
-    Sudoku6 sudoku(2, 3);
-    if (sudoku.generatePuzzle(diff)) {
-        cerr << "Failed to generate " << sudoku.difficultyToString(diff) << " puzzle after max attempts.\n";
+    Sudoku6 sudoku(size, boxH, boxW);
+    if (!sudoku.generatePuzzle(diff)) {
+        cerr << "Failed to generate " << sudoku.difficultyToString(diff) << " " << size << "x" << size <<" puzzle after max attempts.\n";
         return 1;
     }
 
-    sudoku.print();
+    sudoku.print(); 
     return 0;
 }

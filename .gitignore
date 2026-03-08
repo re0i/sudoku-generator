@@ -1,0 +1,10 @@
+# Editor
+.vscode/
+
+# Compiled Binaries
+*.exe
+*.out
+*.o 
+
+# Build Artifacts
+backend/server

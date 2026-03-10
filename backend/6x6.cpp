@@ -32,6 +32,7 @@ public:
     int n;
     int fullMask;
     int grid[MAX_N][MAX_N];
+    int solution[MAX_N][MAX_N];
     int rowMask[MAX_N], colMask[MAX_N], boxMask[MAX_N];
     int cand[MAX_N][MAX_N];
     int emptyCells;
@@ -556,6 +557,7 @@ public:
         for (int attempts = 0; attempts < maxAttempts; attempts++) {
             clear();
             fillGrid();
+            memcpy(solution, grid, sizeof(grid));
             initCandidates();
             candLog.clear();
 
@@ -608,10 +610,25 @@ public:
         }
     }
 
-    void print() {
+    void printPuzzle() {
         for (int r = 0; r < n; r++) {
             for (int c = 0; c < n; c++) {
                 cout << (grid[r][c] == 0 ? "." : to_string(grid[r][c])) << " ";
+                if ((c + 1) % boxW == 0 && c != n - 1) cout << "| ";
+            }
+            cout << "\n";
+            if ((r + 1) % boxH == 0 && r != n - 1) {
+                for (int k = 0; k < n + 2; k++) cout << "--";
+                cout << "\n";
+            }
+        }
+    }
+
+    void printSol() {
+        cout << " \n";
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
+                cout << (solution[r][c] == 0 ? "." : to_string(solution[r][c])) << " ";
                 if ((c + 1) % boxW == 0 && c != n - 1) cout << "| ";
             }
             cout << "\n";
@@ -635,6 +652,7 @@ public:
         return 1;
     }
 
-    sudoku.print(); 
+    sudoku.printPuzzle(); 
+    sudoku.printSol();
     return 0;
-} */
+}  */

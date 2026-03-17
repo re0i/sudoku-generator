@@ -1,0 +1,80 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0a0a;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.home {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  pointer-events: none;
+}
+
+.home h1 {
+  color: #f0ede4;
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  font-size: clamp(3rem, 10vh, 7rem);
+  letter-spacing: -0.03em;
+  text-align: center;
+  pointer-events: auto;
+}
+
+#grid-container {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  z-index: 0;
+}
+
+.cell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cell-front {
+  position: absolute;
+  inset: 0;
+  background: #111;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.4s cubic-bezier(0.77, 0, 0.18, 1);
+}
+
+.cell:hover .cell-front {
+  transform: translateY(100%);
+  transition: transform 0.05s;
+}
+
+.cell-back {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(16px, 2.5vw, 28px);
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+}
+
+.cell-back img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

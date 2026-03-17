@@ -8,7 +8,7 @@
 
 using namespace std;
 
-const int MAX_N = 6;
+const int MAX_N = 9;
 enum Difficulty {EASY, MEDIUM, HARD};
 
 struct CandChange {
@@ -529,7 +529,7 @@ public:
             if (diff == EASY) return s.guesses == 0;
             if (diff == MEDIUM) return s.guesses <= 2;
             if (diff == HARD) return s.guesses >= 1;
-        } else {
+        } else if (n == 6) {
             if (diff == EASY) {
             return s.guesses <= 1 &&
                    s.backtracks <= 2 &&
@@ -549,6 +549,19 @@ public:
                        s.maxGuessDepth >= 1 &&
                        (s.guesses >= 1 || s.backtracks >= 2);
             }
+        } else {
+            if (diff == EASY)
+                return s.guesses <= 1 && s.backtracks <= 2 &&
+                    s.nakedSingles + s.hiddenSingles >= 20;
+            if (diff == MEDIUM)
+                return s.guesses <= 8 && s.backtracks <= 15 &&
+                    s.nakedSingles + s.hiddenSingles >= 10 &&
+                    s.maxGuessDepth <= 3;
+            if (diff == HARD) {
+                int clues = n * n - emptyCells;
+                return clues <= 25 && s.maxGuessDepth >= 2 &&
+                    (s.guesses >= 3 || s.backtracks >= 5);
+            }
         }
         return false;
     }
@@ -565,8 +578,10 @@ public:
 
             if (n == 4) {
                 targetClues = (diff == EASY ? 10 : (diff == MEDIUM ? 9 : 8));
-            } else {
+            } else if (n == 6) {
                 targetClues = (diff == EASY ? 24 : (diff == MEDIUM ? 18 : 10));
+            } else {
+                targetClues = (diff == EASY ? 36 : (diff == MEDIUM ? 27 : 22));
             }
 
             int clues = n * n;
@@ -640,11 +655,10 @@ public:
     }
 };
 
-/* int main() {
-    int size = 4;
-    int boxH = (size == 4) ? 2 : 3;
-    int boxW = (size == 4) ? 2 : 2;
-    Difficulty diff = MEDIUM;
+int main() {
+    int size = 9;
+    int boxH = 3, boxW = 3;
+    Difficulty diff = HARD;
 
     Sudoku6 sudoku(size, boxH, boxW);
     if (!sudoku.generatePuzzle(diff)) {
@@ -652,7 +666,7 @@ public:
         return 1;
     }
 
-    sudoku.printPuzzle(); 
+    sudoku.printPuzzle();
     sudoku.printSol();
     return 0;
-}  */
+}

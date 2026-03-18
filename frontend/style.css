@@ -14,6 +14,7 @@ body {
   position: relative;
   z-index: 10;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
@@ -27,6 +28,116 @@ body {
   letter-spacing: -0.03em;
   text-align: center;
   pointer-events: auto;
+  max-width: 900px;
+}
+
+.home p {
+  font-family: "Hanken Grotesk", Helvetica, sans-serif;
+  color: #a8a59d;
+  margin: 25px 0px;
+}
+
+.home .btn-start {
+  font-size: 18px;
+  padding: 9px 23px;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 0 40px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.logo {
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  font-size: 22px;
+  font-weight: normal;
+  color: #f0ede4;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.logo em {
+  font-style: italic;
+  color: rgba(240, 237, 228, 0.45);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-box {
+  display: inline-flex;
+  align-items: center;
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  font-size: 13px;
+  font-style: italic;
+  color: rgba(240, 237, 228, 0.6);
+  text-decoration: none;
+  padding: 6px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.nav-box:hover {
+  color: #f0ede4;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-start {
+  display: inline-flex;
+  align-items: center;
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  font-size: 13px;
+  font-style: italic;
+  color: #f0ede4;
+  text-decoration: none;
+  padding: 6px 20px;
+  background: #244be6;
+  border: 1px solid #2450e6;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  pointer-events: auto;
+}
+
+.btn-start:hover {
+  background: #1a3bbf;
+  border-color: #1a3bbf;
+}
+
+@media (max-width: 560px) {
+  nav {
+    padding: 0 20px;
+    height: auto;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .nav-right {
+    gap: 8px;
+  }
+
+  .nav-box,
+  .btn-start {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
 }
 
 #grid-container {

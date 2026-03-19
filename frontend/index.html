@@ -4,9 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sudoku Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+    <script defer src="./script.js"></script>
+    <script defer src="./gridBackground.js"></script>
 </head>
 <body>
-  <select id="size">
+  <div id="grid-container"></div>
+  <div class="home">
+    <h1 class="hero-title">A new <i>Sudoku puzzle</i>, whenever you need one.</h1>
+    <p class="hero-subtitle">Choose your difficulty. Generate. Play or print.</p>
+    <button class="btn-start">Start</button>
+  </div>
+
+  <nav>
+    <a class="logo">Sukii <em>Generator</em></a>
+    <div class="nav-right">
+      <a class="nav-box">How to Play</a>
+      <a class="nav-box">How It Works</a>
+      <a class="btn-start">Start</a>
+    </div>
+  </nav>
+
+  <!-- <select id="size">
     <option value="4">4x4</option>
     <option value="6">6x6</option>
   </select>
@@ -23,8 +45,6 @@
 
   <button onclick="fetchPuzzle()">Generate</button>
   <div id="grid"></div>
-  <div id="solGrid"></div>
-
-<script src="./script.js"></script>
+  <div id="solGrid"></div> -->
 </body>
 </html>

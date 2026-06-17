@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <random>
@@ -8,12 +9,12 @@
 
 using namespace std;
 
-const int MAX_N = 9;
+const int MAX_N = 12;
 enum Difficulty {EASY, MEDIUM, HARD};
 
 struct CandChange {
     int r, c;
-    int oldMask;
+    uint32_t oldMask;
 };
 
 struct SolveStats {
@@ -27,20 +28,20 @@ struct SolveStats {
     int nakedPairs = 0;
 };
 
-class Sudoku6 {
+class Sudoku {
 public:
     int n;
-    int fullMask;
+    uint32_t fullMask;
     int grid[MAX_N][MAX_N];
     int solution[MAX_N][MAX_N];
-    int rowMask[MAX_N], colMask[MAX_N], boxMask[MAX_N];
-    int cand[MAX_N][MAX_N];
+    uint32_t rowMask[MAX_N], colMask[MAX_N], boxMask[MAX_N];
+    uint32_t cand[MAX_N][MAX_N];
     int emptyCells;
     int boxH, boxW;
     mt19937 rng;
     vector<CandChange> candLog;
 
-    Sudoku6(int size, int h, int w) : n(size), boxH(h), boxW(w) {
+    Sudoku(int size, int h, int w) : n(size), boxH(h), boxW(w) {
         if (n < 1 || n > MAX_N) {
             throw invalid_argument("Unsupported grid size.");
         }
@@ -48,7 +49,7 @@ public:
             throw invalid_argument("Unsupported box dimensions for grid size.");
         }
 
-        fullMask = (1 << n) - 1;
+        fullMask = (1u << n) - 1u;
         clear();
         rng.seed(chrono::steady_clock::now().time_since_epoch().count());
     };
@@ -67,12 +68,16 @@ public:
         return (r / boxH) * (n / boxW) + (c / boxW);
     }
 
+    inline void boxOrigin(int b, int &br, int &bc) const {
+        int numBoxCols = n / boxW;
+        br = (b / numBoxCols) * boxH;
+        bc = (b % numBoxCols) * boxW;
+    }
+
     void updateCandidatesInc(int r, int c, int num) {
         int bit = 1 << (num - 1);
-        int b = boxIndex(r, c);
-        
-        int br = (b / (n / boxW)) * boxH;
-        int bc = (b % (n / boxW)) * boxW;
+        int br, bc;
+        boxOrigin(boxIndex(r, c), br, bc);
 
         auto removeBit = [&](int rr, int cc) {
             if (cand[rr][cc] & bit) {
@@ -267,8 +272,8 @@ public:
 
         // Naked pairs in boxes
         for (int b = 0; b < n; b++) {
-            int br = (b / (n / boxW)) * boxH;
-            int bc = (b % (n / boxW)) * boxW;
+            int br, bc;
+            boxOrigin(b, br, bc);
             vector<pair<int, int>> cells;
             for (int i = 0; i < boxH; i++) {
                 for (int j = 0; j < boxW; j++) {
@@ -384,7 +389,7 @@ public:
     }
 
     bool hasUniqueSolution() {
-        Sudoku6 copy(n, boxH, boxW);
+        Sudoku copy(n, boxH, boxW);
         memcpy(copy.grid, grid, sizeof(grid));
         if (!copy.rebuildStateFromGrid()) return false;
         int count = 0;
@@ -449,8 +454,8 @@ public:
         }
         // Check boxes
         for (int b = 0; b < n; b++) {
-            int br = (b / (n / boxW)) * boxH;
-            int bc = (b % (n / boxW)) * boxW;
+            int br, bc;
+            boxOrigin(b, br, bc);
             for (int num = 1; num <= n; num++) {
                 int bit = 1 << (num - 1);
                 int count = 0, pr = -1, pc = -1;
@@ -519,7 +524,7 @@ public:
     }
 
     bool matchesDifficulty(Difficulty diff) {
-        Sudoku6 copy(n, boxH, boxW);
+        Sudoku copy(n, boxH, boxW);
         memcpy(copy.grid, grid, sizeof(grid));
         if (!copy.rebuildStateFromGrid()) return false;
         SolveStats s;
@@ -549,7 +554,7 @@ public:
                        s.maxGuessDepth >= 1 &&
                        (s.guesses >= 1 || s.backtracks >= 2);
             }
-        } else {
+        } else if (n == 9) {
             if (diff == EASY)
                 return s.guesses <= 1 && s.backtracks <= 2 &&
                     s.nakedSingles + s.hiddenSingles >= 20;
@@ -562,6 +567,18 @@ public:
                 return clues <= 25 && s.maxGuessDepth >= 2 &&
                     (s.guesses >= 3 || s.backtracks >= 5);
             }
+        } else if (n == 12) {
+            if (diff == EASY)
+                return s.guesses <= 2 && s.backtracks <= 4 &&
+                    s.nakedSingles + s.hiddenSingles >= 40;
+            if (diff == MEDIUM)
+                return s.guesses <= 12 && s.backtracks <= 20 &&
+                    s.nakedSingles + s.hiddenSingles >= 20 &&
+                    s.maxGuessDepth <= 4;
+            if (diff == HARD)
+                return (n * n - emptyCells) <= 40 &&
+                    s.maxGuessDepth >= 3 &&
+                    (s.guesses >= 5 || s.backtracks >= 8);
         }
         return false;
     }
@@ -576,13 +593,11 @@ public:
 
             int targetClues;
 
-            if (n == 4) {
-                targetClues = (diff == EASY ? 10 : (diff == MEDIUM ? 9 : 8));
-            } else if (n == 6) {
-                targetClues = (diff == EASY ? 24 : (diff == MEDIUM ? 18 : 10));
-            } else {
-                targetClues = (diff == EASY ? 36 : (diff == MEDIUM ? 27 : 22));
-            }
+            if (n == 4) targetClues = (diff == EASY ? 10 : (diff == MEDIUM ? 9 : 8));
+            else if (n == 6) targetClues = (diff == EASY ? 24 : (diff == MEDIUM ? 18 : 10));
+            else if (n == 9) targetClues = (diff == EASY ? 36 : (diff == MEDIUM ? 27 : 22));
+            else if (n == 12) targetClues = (diff == EASY ? 55 : (diff == MEDIUM ? 44 : 33));
+            else targetClues = n * n / 2;
 
             int clues = n * n;
             vector<pair<int, int>> cells;
@@ -599,9 +614,12 @@ public:
                 if (backup == 0) continue;
                 clearAll(r, c, backup);
                 initCandidates();
+                candLog.clear();
 
                 if (!hasUniqueSolution()) {
                     place(r, c, backup);
+                    initCandidates();
+                    candLog.clear();
                 } else {
                     clues--;
                 }
@@ -625,30 +643,44 @@ public:
         }
     }
 
+    static char cellChar(int v) {
+        if (v == 0)  return '.';
+        if (v <= 9)  return '0' + v;
+        return 'A' + (v - 10);
+    }
+
     void printPuzzle() {
+        bool wide = (n > 9);
         for (int r = 0; r < n; r++) {
             for (int c = 0; c < n; c++) {
-                cout << (grid[r][c] == 0 ? "." : to_string(grid[r][c])) << " ";
+                if (wide) cout << ' ';
+                cout << cellChar(grid[r][c]) << ' ';
                 if ((c + 1) % boxW == 0 && c != n - 1) cout << "| ";
             }
             cout << "\n";
             if ((r + 1) % boxH == 0 && r != n - 1) {
-                for (int k = 0; k < n + 2; k++) cout << "--";
+                int dashes = wide ? (3 * n + 3 * (n / boxW - 1))
+                                : (2 * n + 3 * (n / boxW - 1));
+                for (int k = 0; k < dashes; k++) cout << '-';
                 cout << "\n";
             }
         }
     }
 
     void printSol() {
-        cout << " \n";
+        cout << "\n";
+        bool wide = (n > 9);
         for (int r = 0; r < n; r++) {
             for (int c = 0; c < n; c++) {
-                cout << (solution[r][c] == 0 ? "." : to_string(solution[r][c])) << " ";
+                if (wide) cout << ' ';
+                cout << cellChar(solution[r][c]) << ' ';
                 if ((c + 1) % boxW == 0 && c != n - 1) cout << "| ";
             }
             cout << "\n";
             if ((r + 1) % boxH == 0 && r != n - 1) {
-                for (int k = 0; k < n + 2; k++) cout << "--";
+                int dashes = wide ? (3 * n + 3 * (n / boxW - 1))
+                                : (2 * n + 3 * (n / boxW - 1));
+                for (int k = 0; k < dashes; k++) cout << '-';
                 cout << "\n";
             }
         }
@@ -656,11 +688,11 @@ public:
 };
 
 int main() {
-    int size = 9;
-    int boxH = 3, boxW = 3;
-    Difficulty diff = HARD;
+    int size = 12;
+    int boxH = 4, boxW = 3;
+    Difficulty diff = EASY;
 
-    Sudoku6 sudoku(size, boxH, boxW);
+    Sudoku sudoku(size, boxH, boxW);
     if (!sudoku.generatePuzzle(diff)) {
         cerr << "Failed to generate " << sudoku.difficultyToString(diff) << " " << size << "x" << size <<" puzzle after max attempts.\n";
         return 1;
